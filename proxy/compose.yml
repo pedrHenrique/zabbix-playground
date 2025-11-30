@@ -1,0 +1,28 @@
+services:
+  zabbix_proxy:
+    image: zabbix/zabbix-proxy-sqlite3:7.4-ol-latest
+    container_name: zabbix_proxy
+    environment:
+      ZBX_HOSTNAME: "Windows-Proxy01-sqlite3"
+      ZBX_PROXYMODE: 0
+      DB_SERVER_HOST: "localhost"
+      MYSQL_USER: "zabbix"
+      MYSQL_PASSWORD: "123456"
+      MYSQL_DATABASE: "zabbix_proxy"
+      ZBX_SERVER_HOST: 172.21.0.2 #172.18.0.1
+    volumes:
+      - proxies_data:/var/lib/zabbix/db_data
+#    ports:
+#      - 10051:10051
+    networks:
+      - zbxnet
+    restart: always
+
+volumes:
+  proxies_data:
+
+networks:
+  zbxnet:
+    name: zabbix_net
+    external: true # Garante que o Docker não tente criar a network dentro do compose, e sim procure uma já criada
+
