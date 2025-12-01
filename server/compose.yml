@@ -19,7 +19,9 @@ services:
     restart: unless-stopped
 
   zabbix_server:
-    image: zabbix/zabbix-server-pgsql:ubuntu-latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: zabbix_server
     environment:
       DB_SERVER_HOST: "postgres_server"

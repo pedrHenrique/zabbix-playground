@@ -11,9 +11,9 @@ services:
       - NET_ADMIN
     ports:
       # - 10053:10050
-      - 8006:8006
-      - 3389:3389/tcp
-      - 3389:3389/udp
+      - 8007:8006
+      - 3390:3389/tcp
+      - 3390:3389/udp
     volumes:
       - ./winser19:/storage
     networks:
@@ -33,9 +33,9 @@ services:
       - NET_ADMIN
     ports:
       # - 10052:10050
-      - 8007:8006
-      - 3390:3389/tcp
-      - 3390:3389/udp
+      - 8008:8006
+      - 3391:3389/tcp
+      - 3391:3389/udp
     volumes:
       - ./winser19_2:/storage
     networks:

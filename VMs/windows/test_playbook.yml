@@ -1,0 +1,28 @@
+---
+- name: Teste de Conexão e Execução no Windows
+  hosts: windows # Certifique-se que este nome bate com seu arquivo de inventário
+  gather_facts: no # Desligado para ser mais rápido neste teste inicial
+
+  tasks:
+    - name: Executar um comando 'dir' no C:\
+      ansible.windows.win_shell: dir C:\
+      register: saida_do_comando
+
+    - name: Mostrar o resultado do comando dir na minha tela
+      ansible.builtin.debug:
+        var: saida_do_comando.stdout_lines
+
+    - name: Criar um arquivo de texto para prova de conceito
+      ansible.windows.win_copy:
+        content: |
+          Olá! Se você está lendo isso, o Ansible conseguiu escrever no disco.
+          Conexão WinRM funcionando com sucesso!
+        dest: C:\ansible_teste.txt
+
+    - name: Ler o arquivo que acabamos de criar (apenas para confirmar)
+      ansible.windows.win_shell: type C:\ansible_teste.txt
+      register: conteudo_arquivo
+
+    - name: Exibir conteúdo do arquivo
+      ansible.builtin.debug:
+        msg: "O arquivo diz: {{ conteudo_arquivo.stdout }}"
