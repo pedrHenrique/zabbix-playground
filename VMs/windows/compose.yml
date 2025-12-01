@@ -1,0 +1,49 @@
+services:
+  winser19:
+    image: dockurr/windows
+    container_name: winser19
+    environment:
+      VERSION: "2019"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      # - 10053:10050
+      - 8006:8006
+      - 3389:3389/tcp
+      - 3389:3389/udp
+    volumes:
+      - ./winser19:/storage
+    networks:
+      - zbxnet
+    restart: always
+    stop_grace_period: 2m
+
+  winser19_2:
+    image: dockurr/windows
+    container_name: winser19_2
+    environment:
+      VERSION: "2019"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      # - 10052:10050
+      - 8007:8006
+      - 3390:3389/tcp
+      - 3390:3389/udp
+    volumes:
+      - ./winser19_2:/storage
+    networks:
+      - zbxnet
+    restart: always
+    stop_grace_period: 2m 
+
+networks:
+  zbxnet: # Apelido Interno
+    name: zabbix_net
+    external: true
