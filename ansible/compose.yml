@@ -1,0 +1,18 @@
+services:
+  ansible_controller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ansible_controller
+    volumes:
+      - ../ansible/tasks:/etc/ansible/tasks
+      # - ../ansible/inventory:/etc/ansible/inventory # Futuro, talvez!
+      - ../ansible/ansible.cfg:/etc/ansible/ansible.cfg
+    networks:
+      - zbxnet
+    restart: unless-stopped
+  
+networks:
+  zbxnet:
+    name: zabbix_net
+    external: true 

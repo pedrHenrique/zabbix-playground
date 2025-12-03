@@ -1,3 +1,9 @@
+# Destaques
+## - Configuração Híbrida - Recomendada caso precisamos executar comandos do Server
+## - Logs Personalizados (TODO)
+## - Hostname dinâmico (Utiliza variável interna do Ansible)
+## - AutoDiscovery com Metadados Compostos
+
 # This is a configuration file for Zabbix agent 2 (Windows)
 # To get more information about Zabbix, visit https://www.zabbix.com
 
@@ -26,8 +32,9 @@ LogFile=C:\Program Files\Zabbix Agent 2\zabbix_agent2.log
 #
 # Mandatory: no
 # Range: 0-1024
-# Default:
-# LogFileSize=1
+# Default: 1
+
+LogFileSize=10
 
 ### Option: DebugLevel
 #	Specifies debug level:
@@ -65,9 +72,9 @@ LogFile=C:\Program Files\Zabbix Agent 2\zabbix_agent2.log
 #
 # Mandatory: no
 # Default:
-# Server=172.30.0.1
+# Server=
 
-Server=172.21.0.8
+Server={{ zabbix_proxy_ip }}
 
 ### Option: ListenPort
 #	Agent will listen on this port for connections from the server.
@@ -121,9 +128,9 @@ Server=172.21.0.8
 #
 # Mandatory: no
 # Default:
-# ServerActive=172.30.0.1
+# ServerActive=
 
-ServerActive=172.21.0.8
+ServerActive={{ zabbix_proxy_ip }}
 
 ### Option: Hostname
 #	List of comma delimited unique, case sensitive hostnames.
@@ -134,7 +141,7 @@ ServerActive=172.21.0.8
 # Default:
 # Hostname=
 
-Hostname=WinServer19_02
+Hostname={{ ansible_hostname }}
 
 ### Option: HostnameItem
 #	Item used for generating Hostname if it is undefined. Ignored if Hostname is defined.
@@ -154,8 +161,8 @@ Hostname=WinServer19_02
 # Mandatory: no
 # Range: 0-2034 bytes
 # Default:
-HostMetadata=AutoRegWindows
 
+HostMetadata=AutoRegWindows:{{ host_env }}:{{ host_role }}
 
 ### Option: HostMetadataItem
 #	Optional parameter that defines an item used for getting host metadata.
@@ -277,8 +284,9 @@ RefreshActiveChecks=60
 #
 # Mandatory: no
 # Range: 1-30
-# Default:
-# Timeout=3
+# Default: 3
+
+Timeout=5
 
 
 ### Option:PluginTimeout

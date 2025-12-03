@@ -1,0 +1,25 @@
+# Inventário Ansible para Servidores Windows
+# Poderíamos atribuir nome ao Host o AutoDiscovery cadastria com base no nome
+# Centralizar Inventário? Seria o mais adequado sinceramente.
+windows_servers:
+  hosts:
+    testserver01:
+      ansible_host: 172.28.0.10
+      host_env: Tests
+      host_role: Base
+    testserver02:
+      ansible_host: 172.28.0.11
+      host_env: Tests
+      host_role: Base
+  vars:
+    ansible_user: Docker
+    ansible_password: admin
+    ansible_connection: winrm
+    ansible_port: 5985
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+
+# Variáveis Globais
+all:
+  vars:
+    zabbix_proxy_ip: 172.28.0.7

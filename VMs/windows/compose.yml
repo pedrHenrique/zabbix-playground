@@ -10,15 +10,15 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      # - 10053:10050
       - 8007:8006
       - 3390:3389/tcp
       - 3390:3389/udp
     volumes:
       - ./winser19:/storage
     networks:
-      - zbxnet
-    restart: always
+      zbxnet:
+        ipv4_address: 172.28.0.10
+    restart: unless-stopped
     stop_grace_period: 2m
 
   winser19_2:
@@ -32,18 +32,18 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      # - 10052:10050
       - 8008:8006
       - 3391:3389/tcp
       - 3391:3389/udp
     volumes:
       - ./winser19_2:/storage
     networks:
-      - zbxnet
-    restart: always
+      zbxnet:
+        ipv4_address: 172.28.0.11
+    restart: unless-stopped
     stop_grace_period: 2m 
 
 networks:
-  zbxnet: # Apelido Interno
+  zbxnet:
     name: zabbix_net
     external: true

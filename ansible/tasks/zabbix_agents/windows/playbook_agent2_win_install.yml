@@ -1,0 +1,84 @@
+---
+- name: Instalar Zabbix Agent 2 no Windows (Download Automático no Controlador)
+  hosts: windows_servers
+  vars:
+    zabbix_version: "7.4.5"
+    zabbix_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.4/7.4.5/zabbix_agent2-7.4.5-windows-amd64-openssl.msi"
+    
+    # Caminhos
+    local_installer_path: "/tmp/zabbix_agent2-{{ zabbix_version }}.msi"
+    remote_installer_path: "C:\\Windows\\Temp\\zabbix_agent2.msi"
+
+  tasks:
+    # ---------------------------------------------------------
+    # ETAPA 1: PREPARAÇÃO NO CONTROLADOR (LINUX)
+    # ---------------------------------------------------------
+    - name: Garantir que o log de execução esteja limpo (cria se não existir)
+      ansible.builtin.copy:
+        content: ""
+        dest: "./ansible_execution.log"
+        force: yes
+      delegate_to: localhost
+      run_once: true
+
+    - name: Baixar o instalador MSI na máquina do Ansible (Localhost)
+      get_url:
+        url: "{{ zabbix_url }}"
+        dest: "{{ local_installer_path }}"
+        mode: '0644'
+      delegate_to: localhost  # Rodando apenas no Linux
+      run_once: true          # Baixa apenas 1 vez, não 400 vezes.
+
+    # ---------------------------------------------------------
+    # ETAPA 2: EXECUÇÃO NOS SERVIDORES WINDOWS
+    # ---------------------------------------------------------
+    - name: Criar diretório de instalação do Zabbix
+      ansible.windows.win_file:
+        path: C:\Program Files\Zabbix Agent 2
+        state: directory
+
+    - name: Copiar instalador do Linux para o Windows
+      ansible.windows.win_copy:
+        src: "{{ local_installer_path }}"
+        dest: "{{ remote_installer_path }}"
+      
+    - name: Instalar o Zabbix Agent 2 via arquivo local
+      ansible.windows.win_package:
+        path: "{{ remote_installer_path }}"
+        state: present
+        arguments:
+          - /qn                 # Silenciosamente
+          - NO_START=1          # NO_START=1 evita que o agente inicie com config padrão errada
+          - SERVER=127.0.0.1    # Necessário para enganarmos o instalador.
+
+    - name: Aplicar configuração via Template
+      ansible.windows.win_template:
+        src: agent2_win.conf.j2
+        dest: C:\Program Files\Zabbix Agent 2\zabbix_agent2.conf
+      notify: Reiniciar Zabbix Windows
+
+    - name: Garantir que o serviço está rodando e automático
+      ansible.windows.win_service:
+        name: "Zabbix Agent 2"
+        start_mode: auto
+        state: started
+
+    - name: Liberar porta 10050 no Firewall do Windows
+      community.windows.win_firewall_rule:
+        name: "Zabbix Agent Port"
+        localport: 10050
+        action: allow
+        direction: in
+        protocol: tcp
+        profiles: domain,private,public
+
+    - name: Remover instalador da pasta Temp do Windows
+      ansible.windows.win_file:
+        path: "{{ remote_installer_path }}"
+        state: absent
+
+  handlers:
+    - name: Reiniciar Zabbix Windows
+      ansible.windows.win_service:
+        name: "Zabbix Agent 2"
+        state: restarted

@@ -1,21 +1,19 @@
 services:
   zabbix_proxy:
     image: zabbix/zabbix-proxy-sqlite3:7.4-ol-latest
-    container_name: zabbix_proxy
+    container_name: zabbix_proxy01
     environment:
-      ZBX_HOSTNAME: "Windows-Proxy01-sqlite3"
+      ZBX_HOSTNAME: "Proxy Docker 01"
       ZBX_PROXYMODE: 0
-      DB_SERVER_HOST: "localhost"
+      ZBX_SERVER_HOST: 172.28.0.5
       MYSQL_USER: "zabbix"
       MYSQL_PASSWORD: "123456"
       MYSQL_DATABASE: "zabbix_proxy"
-      ZBX_SERVER_HOST: 172.21.0.2 #172.18.0.1
     volumes:
       - proxies_data:/var/lib/zabbix/db_data
-#    ports:
-#      - 10051:10051
     networks:
-      - zbxnet
+      zbxnet:
+        ipv4_address: 172.28.0.7
     restart: always
 
 volumes:
