@@ -1,0 +1,39 @@
+# Centralizar Inventário? Seria o mais adequado sinceramente.
+linux_servers:
+  hosts:
+    # ubuntutest:
+    #   ansible_host: 172.25.146.60
+    #   host_name: UbuntuTest
+    #   host_env: Tests
+    #   host_role: Banco
+
+    oraclelinuxtest:
+      ansible_host: 172.25.146.60
+      ansible_port: 2233
+      ansible_user: cmaticdbpg14
+      host_name: OracleLinuxTest
+      host_env: Tests
+      host_role: Banco
+      zabbix_agent2_listen_port: 10041
+      
+  vars:
+    ansible_user: zabbixagent
+    ansible_password: 123456
+    ansible_connection: ssh
+    ansible_port: 22
+
+    ansible_become: yes
+    ansible_become_method: sudo
+    ansible_become_password: "123456"
+
+# Variáveis Globais
+all:
+  vars:
+    linux_pid_file_path: "/var/run/zabbix/zabbix_agent2.pid"
+    linux_log_file_path: "/var/log/zabbix/zabbix_agent2.log"
+    linux_log_file_size: 10
+    linux_agent_extra_conf_path: "/etc/zabbix/zabbix_agent2.d/*.conf"
+    linux_agent_extra_plugins_path: "/etc/zabbix/zabbix_agent2.d/plugins.d/*.conf"
+    zabbix_proxy_ip: 172.28.0.7
+    zabbix_proxy_port: 10051
+    zabbix_agent2_listen_port: 10040

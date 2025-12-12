@@ -1,2 +1,3 @@
 VMs/windows/win*/**
 **/ansible_execution.log
+ansible/**/files/**

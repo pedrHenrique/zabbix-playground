@@ -13,7 +13,7 @@
     # ---------------------------------------------------------
     # ETAPA 1: PREPARAÇÃO NO CONTROLADOR (LINUX)
     # ---------------------------------------------------------
-    - name: Garantir que o log de execução esteja limpo (cria se não existir)
+    - name: Limpando Log Execução Ansible (No Control Node)
       ansible.builtin.copy:
         content: ""
         dest: "./ansible_execution.log"

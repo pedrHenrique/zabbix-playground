@@ -1,0 +1,212 @@
+#? Logs do Execução Não estão ok
+
+---
+- name: Instalar Zabbix Agent 2 (Oracle/CentOS/Ubuntu)
+  hosts: linux_servers
+  become: yes
+  gather_facts: false # Desligado inicialmente para permitir a inicialização sem Python
+  vars:
+    zabbix_major_version: "7.4"
+    zabbix_full_version: "{{ zabbix_major_version }}-1"
+    zabbix_plugins: "zabbix-agent2-plugin-mongodb zabbix-agent2-plugin-mssql zabbix-agent2-plugin-postgresql"
+    local_cache_dir: "./files/zabbix_installers"
+    
+    python_minrequired_version: "(3, 9)"
+    python_portable_url: "https://github.com/indygreg/python-build-standalone/releases/download/20240224/cpython-3.10.13+20240224-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    python_install_path: "/opt/ansible/python_portable"
+    python_bin: "{{ python_install_path }}/python/bin/python3"
+
+  pre_tasks:
+    - name: Limpando Log Execução Ansible (No Control Node)
+      ansible.builtin.copy:
+        content: ""
+        dest: "./ansible_execution.log"
+        force: yes
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Verificando Compatibilidade do Python do Sistema
+      raw: |
+        if python3 --version >/dev/null 2>&1 && \
+           python3 -c 'import sys; exit(0 if (sys.version_info >= {{ python_minrequired_version }}) else 1)'; then
+          echo "Python do host atende aos requisitos mínimos."
+          exit 0
+        else
+          echo "Python não encontrado ou versão instalada inferior a requerida."
+          exit 1
+        fi
+      register: output_python_check
+      failed_when: false  # Não quebra o playbook se o comando falhar
+      changed_when: false
+
+    - name: Baixando e Instalando Python Portable
+      raw: |
+        if [ -f {{ python_bin }} ]; then
+          echo "Python Portable já instalado em {{ python_install_path }}. Pulando instalação."
+          exit 0
+        fi
+        mkdir -p {{ python_install_path }}
+        cd {{ python_install_path }}
+        
+        if command -v curl >/dev/null 2>&1; then
+            curl -L -o python.tar.gz "{{ python_portable_url }}"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -O python.tar.gz "{{ python_portable_url }}"
+        else
+            echo "Erro: Nem curl nem wget encontrados para baixar o Python."
+            exit 1
+        fi
+        
+        tar xzf python.tar.gz
+        rm python.tar.gz
+        
+        # Link simbólico para facilitar adicionar variáveis no PATH (opcional)
+        #ln -s {{ python_install_path }}/python/bin/python3 /usr/local/bin/python3
+      when: # Apenas rode se o Python do sistema for insuficiente.
+        - output_python_check.rc != 0
+        - "not ansible_check_mode" # Boa prática: raw não deve rodar em check mode se fizer alterações
+
+    - name: Definindo Python de Execução do Ansible
+      set_fact:
+        ansible_python_interpreter: >-
+          {{
+            '/usr/bin/python3' if output_python_check.rc == 0 
+            else python_bin
+          }}
+
+    # A partir daqui coletamos os dados do Host
+    - name: Coletando dados do sistema
+      ansible.builtin.setup:
+
+  tasks:
+    - name: Host Log Info
+      ansible.builtin.debug:
+        msg: "Estou rodando no host {{ ansible_hostname }} usando Python {{ ansible_python_version }} e o interpretador {{ ansible_python_interpreter}} localizado em {{ ansible_python_interpreter }}"
+    
+    # -------------------------------------------------------
+    # FASE 1: PREPARAÇÃO DOS ARTEFATOS (No Control Node)
+    # -------------------------------------------------------
+    - name: Local - Criar Diretório de Cache
+      delegate_to: localhost
+      run_once: true
+      file:
+        path: "{{ local_cache_dir }}"
+        state: directory
+        mode: '0755'
+      become: no
+
+    - name: Local - Baixar Pacote de Repositório Zabbix
+      delegate_to: localhost
+      run_once: true
+      become: no
+      get_url:
+        url: >-
+          {% if ansible_distribution == 'Ubuntu' %}
+          https://repo.zabbix.com/zabbix/{{ zabbix_major_version }}/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_{{ zabbix_full_version }}+ubuntu{{ ansible_distribution_version }}_all.deb
+          {% elif ansible_os_family == 'RedHat' %}
+          https://repo.zabbix.com/zabbix/{{ zabbix_major_version }}/release/rhel/{{ ansible_distribution_major_version }}/noarch/zabbix-release-{{ zabbix_full_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm
+          {% endif %}
+        dest: "{{ local_cache_dir }}/zabbix-release-{{ ansible_distribution }}.pkg"
+        mode: '0644'
+
+    # -------------------------------------------------------
+    # FASE 2: DISTRIBUIÇÃO E INSTALAÇÃO
+    # -------------------------------------------------------
+    
+    # UBUNTU TASKS
+    - name: Ubuntu - Copiar e Instalar Repo
+      block:
+        - name: Copiar .deb para destino
+          copy:
+            src: "{{ local_cache_dir }}/zabbix-release-{{ ansible_distribution }}.pkg"
+            dest: /tmp/zabbix-release.deb
+        
+        - name: Ubuntu - Instalar pacote do repositório via apt-get
+          command: apt-get install -y /tmp/zabbix-release.deb
+          register: repo_install_result
+          changed_when: "'Setting up zabbix-release' in repo_install_result.stdout"
+
+        - name: Ubuntu - Atualizar Cache do APT
+          command: apt-get update
+          when: repo_install_result.changed or ansible_check_mode
+      when: ansible_distribution == "Ubuntu"
+
+    # RHEL TASKS
+    - name: RHEL - Copiar e Instalar Repo
+      block:
+        - name: Copiar .rpm para destino
+          copy:
+            src: "{{ local_cache_dir }}/zabbix-release-{{ ansible_distribution }}.pkg"
+            dest: /tmp/zabbix-release.rpm
+
+        - name: RHEL - Instalar pacote do repositório via dnf
+          command: dnf install -y /tmp/zabbix-release.rpm
+          register: rpm_install_result
+          changed_when: "'Installing' in rpm_install_result.stdout"
+      when: ansible_os_family == "RedHat"
+
+    - name: Instalar o Zabbix Agent 2 e Plugins
+      shell: |
+        if [ -f /etc/debian_version ]; then
+            dpkg -s zabbix-agent2 | grep installed || apt-get install -y zabbix-agent2 {{ zabbix_plugins}} 
+        elif [ -f /etc/redhat-release ]; then
+            # RHEL/CENTOS
+            rpm -q zabbix-agent2 || dnf install -y zabbix-agent2 {{ zabbix_plugins }}
+        fi
+      register: agent_install_output
+      # Verifica se já está instalado para não marcar 'changed' falsamente
+      changed_when: "'Unpacking' in agent_install_output.stdout or 'Installing' in agent_install_output.stdout"
+
+    # -------------------------------------------------------
+    # FASE 3: CONFIGURAÇÃO
+    # -------------------------------------------------------
+    - name: Criar diretórios de include
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: zabbix
+        group: zabbix
+      loop:
+        - /etc/zabbix/zabbix_agent2.d
+        - /etc/zabbix/zabbix_agent2.d/plugins.d
+
+    - name: Aplicar Configuração via Template
+      template:
+        src: agent2_linux.conf.j2
+        dest: /etc/zabbix/zabbix_agent2.conf
+        owner: zabbix
+        group: zabbix
+        mode: '0644'
+
+    # -------------------------------------------------------
+    # FASE 4: SERVIÇO
+    # -------------------------------------------------------
+    - name: Garantindo execução do serviço
+      block:
+        - name: Iniciar Zabbix Agent via Systemd
+          service:
+            name: zabbix-agent2
+            state: restarted
+            enabled: yes
+
+    # Será que realmente seria necessário??
+    # -------------------------------------------------------
+    # FASE 5: FIREWALL (Condicional)
+    # -------------------------------------------------------
+    # - name: Configurar Firewall (Apenas se firewall estiver ativo)
+    #   block:
+    #     - name: UFW (Ubuntu)
+    #       ufw:
+    #         rule: allow
+    #         port: '10050'
+    #         proto: tcp
+    #       when: ansible_distribution == "Ubuntu"
+          
+    #     - name: Firewalld (RHEL/Oracle)
+    #       firewalld:
+    #         port: 10050/tcp
+    #         permanent: yes
+    #         state: enabled
+    #         immediate: yes
+    #       when: ansible_os_family == "RedHat"
+    #   ignore_errors: yes # Evita falhar se o firewall não estiver instalado
